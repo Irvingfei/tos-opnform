@@ -1,0 +1,24 @@
+[Unit]
+Description=OpnForm form builder (bundled runtime supervisor)
+After=network.target
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+[Service]
+Type=simple
+User=opnform
+Group=opnform
+WorkingDirectory=/usr/local/opnform
+EnvironmentFile=/usr/local/opnform/opnform.env
+ExecStart=/usr/bin/python3 /usr/local/opnform/bin/opnform-supervisor
+TimeoutStartSec=120
+TimeoutStopSec=60
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/usr/local/opnform/data /usr/local/opnform/logs
+LimitNOFILE=65536
+# Restart= / RestartSec= 由平台管理，不配置
+
+[Install]
+WantedBy=multi-user.target

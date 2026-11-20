@@ -9,6 +9,8 @@
 #   ./build-multiarch.sh myaccount 1.0.0-tos ../OpnForm
 set -euo pipefail
 
+cd "$(dirname "$0")/.."   # 切到 docker/ 目录（本脚本位于 docker/images/）
+
 NS="${1:?用法: build-multiarch.sh <docker_hub_namespace> <version_tag> [opnform源码路径]}"
 VER="${2:?缺少版本号，例如 1.0.0-tos}"
 SRC="${3:-../OpnForm}"

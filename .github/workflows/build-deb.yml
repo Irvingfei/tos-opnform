@@ -1,0 +1,76 @@
+name: Build TOS deb packages
+
+# 推送 v* 标签时触发：在 ubuntu:22.04 容器内捆绑全套运行时，
+# 产出 x86_64(amd64) 与 aarch64(arm64) 两份 TOS Deb 提交包并挂到 GitHub Release。
+# 按指南 §8.2/§8.13：元数据在 usr/local/opnform/ 下，Architecture 用 amd64/arm64。
+# 需在仓库 Secrets 配置：PUBLISHER_NAME（发布者显示名）。
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-deb:
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone OpnForm source (pinned)
+        run: |
+          git clone --depth 1 --branch v2.8.6 https://github.com/OpnForm/OpnForm.git opnform-src
+
+      - name: Build deb inside ubuntu:22.04 container
+        env:
+          VER: ${{ github.ref_name }}
+        run: |
+          VER_NUM="${VER#v}"
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work \
+            -e DEBIAN_FRONTEND=noninteractive \
+            ubuntu:22.04 \
+            bash -c "apt-get update -qq && apt-get install -y -qq sudo && \
+                     chmod +x deb/build-in-container.sh && \
+                     deb/build-in-container.sh '$VER_NUM' \
+                       '${{ secrets.PUBLISHER_NAME }}' \
+                       'Joffy <joffy@users.noreply.github.com>' \
+                       '${{ matrix.arch }}' ./opnform-src"
+
+      - name: Static compliance check
+        run: |
+          sudo apt-get install -y -qq lintian || true
+          python3 deb/verify-deb.py
+          lintian deb/dist/opnform_${{ matrix.arch }}.deb || true
+
+      - name: Upload deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: opnform-deb-${{ matrix.arch }}
+          path: deb/dist/opnform_${{ matrix.arch }}.deb
+
+  release:
+    needs: build-deb
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Create GitHub Release with deb assets
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/opnform_amd64.deb
+            artifacts/opnform_arm64.deb

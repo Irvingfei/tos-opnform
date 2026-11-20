@@ -31,11 +31,11 @@ jobs:
 
       - name: Generate packages
         run: |
-          chmod +x make-packages.sh
-          ./make-packages.sh "${{ secrets.DOCKERHUB_USERNAME }}" "${{ secrets.PUBLISHER_NAME }}" "${GITHUB_REF_NAME#v}"
+          chmod +x docker/make-packages.sh
+          (cd docker && ./make-packages.sh "${{ secrets.DOCKERHUB_USERNAME }}" "${{ secrets.PUBLISHER_NAME }}" "${GITHUB_REF_NAME#v}")
 
       - name: Static compliance check
-        run: python3 verify.py
+        run: cd docker && python3 verify.py
 
       - name: Create GitHub Release with package assets
         uses: softprops/action-gh-release@v2

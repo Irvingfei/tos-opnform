@@ -1,0 +1,9 @@
+#!/bin/bash
+set -e
+
+# 注：应用用户 opnform 由平台在安装时自动创建，此处不得 useradd（§8.14）
+
+# 创建可写数据与日志目录
+mkdir -p /usr/local/opnform/data /usr/local/opnform/logs
+
+exit 0

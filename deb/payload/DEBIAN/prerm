@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+
+# 清理应用用户残留进程（升级安全）
+pkill -u opnform 2>/dev/null || true
+sleep 1
+
+# 停止并禁用服务
+systemctl stop opnform.service 2>/dev/null || true
+systemctl disable opnform.service 2>/dev/null || true
+
+exit 0

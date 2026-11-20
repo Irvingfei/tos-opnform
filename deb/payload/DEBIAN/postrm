@@ -1,0 +1,17 @@
+#!/bin/bash
+set -e
+
+systemctl daemon-reload
+
+if [ "$1" = "purge" ]; then
+    # 彻底卸载：删除用户与数据
+    if id -u opnform > /dev/null 2>&1; then
+        pkill -u opnform 2>/dev/null || true
+        userdel opnform 2>/dev/null || true
+    fi
+    rm -rf /usr/local/opnform/data /usr/local/opnform/logs
+    systemctl disable opnform.service 2>/dev/null || true
+    systemctl daemon-reload 2>/dev/null || true
+fi
+
+exit 0

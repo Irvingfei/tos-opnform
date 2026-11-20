@@ -1,0 +1,185 @@
+# OpnForm — TOS 7 应用多语言文件（26 语言，语种与顺序按指南 §8.5.1）
+# 未翻译语种按规范以英文填充；name/auth/descript 每节均非空。
+# __PUBLISHER__ 由 make-packages.sh 注入。
+
+[zh-cn]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "开源表单构建器，在 NAS 上完全私有化部署：拖拽创建表单、收集回答、分析结果，数据不出家庭网络。"
+release_note = "1. 首个 TOS 7 版本，同时提供 x86_64 与 aarch64 架构包。"
+important = "首次启动需初始化数据库，约 1-2 分钟，请耐心等待。所有数据保存在 NAS 本地。"
+
+[zh-hk]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "開源表單構建器，在 NAS 上完全私有化部署：拖拽建立表單、收集回答、分析結果，資料不出家庭網路。"
+release_note = "1. 首個 TOS 7 版本，同時提供 x86_64 與 aarch64 架構包。"
+important = "首次啟動需初始化資料庫，約 1-2 分鐘，請耐心等待。所有資料保存在 NAS 本地。"
+
+[en-us]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Open-source form builder, fully self-hosted on your NAS: create forms by drag and drop, collect responses and analyze results — your data never leaves your network."
+release_note = "1. Initial release for TOS 7, available for both x86_64 and aarch64."
+important = "First launch initializes the database (~1-2 minutes). All data stays on your NAS."
+
+[ko-kr]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "오픈소스 폼 빌더. NAS에 완전히 자체 호스팅되어 드래그 앤 드롭으로 폼을 만들고 응답을 수집·분석할 수 있습니다. 데이터는 네트워크를 떠나지 않습니다."
+release_note = "1. TOS 7 최초 릴리스, x86_64 및 aarch64 아키텍처 지원."
+important = "첫 실행 시 데이터베이스를 초기화합니다(약 1-2분). 모든 데이터는 NAS에 저장됩니다."
+
+[ja-jp]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "オープンソースのフォームビルダー。NAS上で完全セルフホスト運用でき、ドラッグ＆ドロップでフォームを作成し、回答を収集・分析できます。データはネットワークの外に出ません。"
+release_note = "1. TOS 7 初回リリース。x86_64 と aarch64 の両アーキテクチャに対応。"
+important = "初回起動時にデータベースを初期化します（約1〜2分）。すべてのデータは NAS 内に保存されます。"
+
+[de-de]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Open-Source-Formularbaukasten, vollständig selbst gehostet auf Ihrem NAS: Formulare per Drag & Drop erstellen, Antworten sammeln und auswerten — Ihre Daten verlassen Ihr Netzwerk nicht."
+release_note = "1. Erste Version für TOS 7, verfügbar für x86_64 und aarch64."
+important = "Der erste Start initialisiert die Datenbank (~1-2 Minuten). Alle Daten bleiben auf Ihrem NAS."
+
+[fr-fr]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Créateur de formulaires open source, entièrement auto-hébergé sur votre NAS : créez des formulaires par glisser-déposer, collectez et analysez les réponses — vos données ne quittent jamais votre réseau."
+release_note = "1. Première version pour TOS 7, disponible en x86_64 et aarch64."
+important = "Le premier démarrage initialise la base de données (~1-2 minutes). Toutes les données restent sur votre NAS."
+
+[it-it]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Costruttore di moduli open source, completamente self-hosted sul tuo NAS: crea moduli con drag & drop, raccogli e analizza le risposte — i tuoi dati non lasciano mai la tua rete."
+release_note = "1. Prima versione per TOS 7, disponibile per x86_64 e aarch64."
+important = "Il primo avvio inizializza il database (~1-2 minuti). Tutti i dati restano sul tuo NAS."
+
+[es-es]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Creador de formularios de código abierto, completamente autoalojado en tu NAS: crea formularios arrastrando y soltando, recopila respuestas y analiza resultados — tus datos nunca salen de tu red."
+release_note = "1. Primera versión para TOS 7, disponible para x86_64 y aarch64."
+important = "El primer inicio inicializa la base de datos (~1-2 minutos). Todos los datos permanecen en tu NAS."
+
+[hu-hu]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Open-source űrlapkészítő, teljesen saját üzemeltetésűen a NAS-on: hozzon létre űrlapokat húzd-és-ejtsd módszerrel, gyűjtsön válaszokat és elemezze az eredményeket — az adatai sosem hagyják el a hálózatát."
+release_note = "1. Első TOS 7 verzió, x86_64 és aarch64 architektúrára."
+important = "Az első indítás inicializálja az adatbázist (~1-2 perc). Minden adat a NAS-on marad."
+
+[pl-pl]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Open-source kreator formularzy, w pełni samodzielnie hostowany na Twoim NAS: twórz formularze metodą przeciągnij i upuść, zbieraj odpowiedzi i analizuj wyniki — Twoje dane nie opuszczają Twojej sieci."
+release_note = "1. Pierwsza wersja dla TOS 7, dostępna dla x86_64 i aarch64."
+important = "Pierwsze uruchomienie inicjalizuje bazę danych (~1-2 minuty). Wszystkie dane pozostają na Twoim NAS."
+
+[tr-tr]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Açık kaynak formları oluşturucu, NAS'ınızda tamamen kendi sunucunuzda barındırılır: sürükle-bırak ile form oluşturun, yanıtları toplayın ve sonuçları analiz edin — verileriniz ağınızdan asla çıkmaz."
+release_note = "1. TOS 7 için ilk sürüm, x86_64 ve aarch64 mimarilerinde."
+important = "İlk açılış veritabanını hazırlar (~1-2 dakika). Tüm veriler NAS'ınızda kalır."
+
+[ru-ru]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Конструктор форм с открытым исходным кодом, полностью размещаемый на вашем NAS: создавайте формы перетаскиванием, собирайте ответы и анализируйте результаты — данные не покидают вашу сеть."
+release_note = "1. Первый выпуск для TOS 7, доступен для x86_64 и aarch64."
+important = "При первом запуске инициализируется база данных (~1-2 минуты). Все данные остаются на вашем NAS."
+
+[pt-pt]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Criador de formulários de código aberto, totalmente auto-hospedado no seu NAS: crie formulários com arrastar e largar, recolha respostas e analise resultados — os seus dados nunca saem da sua rede."
+release_note = "1. Primeira versão para o TOS 7, disponível para x86_64 e aarch64."
+important = "O primeiro arranque inicializa a base de dados (~1-2 minutos). Todos os dados ficam no seu NAS."
+
+[cs-cz]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Open-source form builder, fully self-hosted on your NAS: create forms by drag and drop, collect responses and analyze results — your data never leaves your network."
+release_note = "1. Initial release for TOS 7, available for both x86_64 and aarch64."
+important = "First launch initializes the database (~1-2 minutes). All data stays on your NAS."
+
+[da-dk]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Open-source form builder, fully self-hosted on your NAS: create forms by drag and drop, collect responses and analyze results — your data never leaves your network."
+release_note = "1. Initial release for TOS 7, available for both x86_64 and aarch64."
+important = "First launch initializes the database (~1-2 minutes). All data stays on your NAS."
+
+[nl-nl]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Open-source formulierenbouwer, volledig self-hosted op uw NAS: maak formulieren via drag & drop, verzamel antwoorden en analyseer resultaten — uw gegevens verlaten nooit uw netwerk."
+release_note = "1. Eerste versie voor TOS 7, beschikbaar voor x86_64 en aarch64."
+important = "De eerste start initialiseert de database (~1-2 minuten). Alle gegevens blijven op uw NAS."
+
+[nb-no]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Open-source form builder, fully self-hosted on your NAS: create forms by drag and drop, collect responses and analyze results — your data never leaves your network."
+release_note = "1. Initial release for TOS 7, available for both x86_64 and aarch64."
+important = "First launch initializes the database (~1-2 minutes). All data stays on your NAS."
+
+[sv-se]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Öppen källkods-formulärbyggare, helt egenhostad på din NAS: skapa formulär med dra och släpp, samla in svar och analysera resultat — dina data lämnar aldrig ditt nätverk."
+release_note = "1. Första versionen för TOS 7, tillgänglig för både x86_64 och aarch64."
+important = "Första starten initierar databasen (~1-2 minuter). All data finns kvar på din NAS."
+
+[el-gr]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Open-source form builder, fully self-hosted on your NAS: create forms by drag and drop, collect responses and analyze results — your data never leaves your network."
+release_note = "1. Initial release for TOS 7, available for both x86_64 and aarch64."
+important = "First launch initializes the database (~1-2 minutes). All data stays on your NAS."
+
+[ro-ro]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Open-source form builder, fully self-hosted on your NAS: create forms by drag and drop, collect responses and analyze results — your data never leaves your network."
+release_note = "1. Initial release for TOS 7, available for both x86_64 and aarch64."
+important = "First launch initializes the database (~1-2 minutes). All data stays on your NAS."
+
+[th-th]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Open-source form builder, fully self-hosted on your NAS: create forms by drag and drop, collect responses and analyze results — your data never leaves your network."
+release_note = "1. Initial release for TOS 7, available for both x86_64 and aarch64."
+important = "First launch initializes the database (~1-2 minutes). All data stays on your NAS."
+
+[vi-vn]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Open-source form builder, fully self-hosted on your NAS: create forms by drag and drop, collect responses and analyze results — your data never leaves your network."
+release_note = "1. Initial release for TOS 7, available for both x86_64 and aarch64."
+important = "First launch initializes the database (~1-2 minutes). All data stays on your NAS."
+
+[id-id]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Pembuat formulir sumber terbuka, sepenuhnya di-hosting sendiri di NAS Anda: buat formulir dengan seret dan lepas, kumpulkan jawaban, dan analisis hasilnya — data Anda tidak pernah meninggalkan jaringan Anda."
+release_note = "1. Rilis perdana untuk TOS 7, tersedia untuk x86_64 dan aarch64."
+important = "Peluncuran pertama menginisialisasi basis data (~1-2 menit). Semua data tetap berada di NAS Anda."
+
+[ar-sa]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "أداة إنشاء نماذج مفتوحة المصدر، تستضاف بالكامل على خادم NAS الخاص بك: أنشئ النماذج بالسحب والإفلات، واجمع الردود، وحلّل النتائج — بياناتك لا تغادر شبكتك أبدًا."
+release_note = "1. الإصدار الأول لنظام TOS 7، متوفر لمعماريتي x86_64 و aarch64."
+important = "يعمل التشغيل الأول على تهيئة قاعدة البيانات (~1-2 دقيقة). تبقى جميع البيانات على خادم NAS الخاص بك."
+
+[he-il]
+name = "OpnForm"
+auth = "__PUBLISHER__"
+descript = "Open-source form builder, fully self-hosted on your NAS: create forms by drag and drop, collect responses and analyze results — your data never leaves your network."
+release_note = "1. Initial release for TOS 7, available for both x86_64 and aarch64."
+important = "First launch initializes the database (~1-2 minutes). All data stays on your NAS."

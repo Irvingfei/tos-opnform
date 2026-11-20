@@ -1,116 +1,78 @@
 # OpnForm for TOS 7（铁威马 NAS 应用适配工程）
 
-将开源表单构建器 [OpnForm](https://github.com/OpnForm/OpnForm)（AGPL-3.0）适配为 TOS 7
-Docker 应用，同时产出 **x86_64** 与 **aarch64** 两个架构的提交包。
+将开源表单构建器 [OpnForm](https://github.com/OpnForm/OpnForm)（AGPL-3.0，Laravel 12 + Nuxt）适配为铁威马 TOS 7 应用，同时产出 **x86_64** 与 **aarch64** 双架构提交包。包含两条并行路线：
 
-依据：[TOS 7 应用开发与发布指南](https://github.com/TerraMasterOfficial/app-pkg-tools#tos-7-application-development-and-publishing-guide)（指南第 8/9 章）。
+- **`deb/`** — Deb 原生应用（WebUI 外部打开，自带全套捆绑运行时，systemd 单元管理）
+- **`docker/`** — Docker 应用（7 容器 compose 编排，依赖 DockerEngine）
+
+依据：[TOS 7 应用开发与发布指南](https://github.com/TerraMasterOfficial/app-pkg-tools#tos-7-application-development-and-publishing-guide)（第 8 章 Deb / 第 9 章 Docker）。
+
+> ⚠️ **路线合规提示**：指南 §2.2 规定「多服务架构应用（Web + 数据库）必须用 Docker、禁止 Deb」。OpnForm 属于该场景——Deb 路线按 §2.4 Option 3 捆绑全套运行时实现，技术上可安装运行，但**送审应用中心存在被拒风险**（保留 Docker 路线作为合规上架通道）。两条路线共存即为此因。
+
+## Deb 路线（`deb/`）
+
+**架构**：单一 systemd 单元 `opnform.service` → python3 监督器（TOS 预装 Python 3.10）按依赖顺序拉起捆绑的 PostgreSQL 14 → Redis → PHP-FPM 8.3 → Nuxt(Node 24) → nginx，全部绑定 127.0.0.1，仅 18080 对外。数据落 `/usr/local/opnform/data`，首启自动生成 APP_KEY/JWT_SECRET/DB 口令并完成迁移。
+
+```
+deb/
+├── payload/                      # 包内静态骨架（§8.2 布局）
+│   ├── DEBIAN/{control.in,preinst,postinst,prerm,postrm}
+│   └── usr/local/opnform/
+│       ├── config.ini            # §8.4 模板 2（open_path=true 外部打开）
+│       ├── opnform.lang          # 26 语言（§8.5.1）
+│       ├── images/icons/opnform.svg
+│       ├── init.d/opnform.service        # §8.12 安全加固单元
+│       ├── bin/opnform-supervisor        # python3 进程监督器
+│       ├── bin/{opnform-setup,opnform-migrate}.sh
+│       ├── nginx/nginx.conf              # 应用自带 nginx（路由沿用官方 ingress）
+│       └── opnform.env
+├── build-in-container.sh         # 真实构建：ubuntu:22.04 容器内捆绑
+│                                 #   PHP8.3(sury) / Node24(官方tarball) /
+│                                 #   PG14+Redis+nginx-core(Ubuntu 主源)
+├── make-skeleton-deb.sh          # 骨架样例包（本地即可跑，验证布局）
+└── verify-deb.py                 # 静态合规自检（dpkg-deb 解包逐项校验）
+```
+
+**本地验证布局**（无需 Docker）：
+
+```bash
+cd deb && ./make-skeleton-deb.sh 1.0.0 amd64 && python3 verify-deb.py --skeleton
+```
+
+**真实构建**（CI 自动，见 `.github/workflows/build-deb.yml`）：
+
+```bash
+docker run --rm -v "$PWD:/work" -w /work ubuntu:22.04 \
+  bash -c "deb/build-in-container.sh 1.0.0 'Joffy' 'Joffy <joffy@users.noreply.github.com>' amd64 ./opnform-src"
+```
+
+## Docker 路线（`docker/`）
+
+见 `docker/README.md`。7 容器编排（ingress/api/worker/scheduler/client/redis/db），端口 18080、bind mount、全服务非 root、健康检查齐备；`make-packages.sh` 生成两架构 tar.gz 提交包，`verify.py` 静态自检。
 
 ## CI 自动构建与发布（GitHub Actions）
 
-本仓库内置两条流水线，推送 `v*` 标签时自动触发：
+推送 `v*` 标签时三条流水线自动触发：
 
-- **build-images.yml** — 克隆固定版本（`OPNFORM_REF`，当前 v2.8.6）的 OpnForm 源码，
-  注入补丁版入口脚本，用 buildx 一次构建三个自建镜像的 linux/amd64 + linux/arm64
-  双架构 manifest 并推送 Docker Hub；
-- **release-packages.yml** — 生成双架构 TOS 提交包、跑静态合规自检、创建 GitHub
-  Release 并挂载 `opnform_x86_64.tar.gz` / `opnform_aarch64.tar.gz`（TOS 开发者平台
-  提审时直接从该 Release 拉取，见指南第 15 章）。
+| Workflow | 产物 | 说明 |
+|---|---|---|
+| `build-deb.yml` | `opnform_amd64.deb` + `opnform_arm64.deb` | ubuntu:22.04 容器内捆绑运行时（arm64 用原生 arm runner，非交叉） |
+| `build-images.yml` | Docker Hub 双架构镜像 ×3 | buildx linux/amd64+arm64 |
+| `release-packages.yml` | `opnform_x86_64.tar.gz` + `opnform_aarch64.tar.gz` | Docker 应用提交包，静态自检后挂 Release |
 
-使用前在仓库 **Settings → Secrets and variables → Actions** 配置：
+Secrets 配置（Settings → Secrets and variables → Actions）：`DOCKERHUB_USERNAME`、`DOCKERHUB_TOKEN`、`PUBLISHER_NAME`。
 
-| Secret | 用途 |
-|---|---|
-| `DOCKERHUB_USERNAME` | Docker Hub 用户名 = 镜像命名空间，写入 compose 的 image 引用 |
-| `DOCKERHUB_TOKEN` | Docker Hub Access Token（仅构建流水线需要） |
-| `PUBLISHER_NAME` | 发布者显示名，写入 config.ini 与 26 语言 lang 文件 |
+## 提交发布（指南第 15 章）
 
-```bash
-git tag v1.0.0 && git push origin v1.0.0   # 触发构建 + 发布
-```
+Deb 应用：每个架构单独提交 `opnform_amd64.deb` / `opnform_arm64.deb`（文件名规范 §8.15：`<appid>_<platform>.deb`，`<platform>` 取 config.ini 的 platform 字段值）。Docker 应用：提交对应架构 tar.gz。
 
-## 目录结构
+## 验证边界
 
-```
-tos-opnform/
-├── images/                  # 自建镜像（TOS 仅接受 Docker Hub 镜像，需推到你自己的命名空间）
-│   ├── Dockerfile.api       # Laravel API：官方版 + UID1000 www-data + 非root + 密钥首启生成
-│   ├── Dockerfile.client    # Nuxt 客户端：官方版 + 非root(node)
-│   ├── Dockerfile.ingress   # nginx 入口：配置固化进镜像（TOS 包不允许第 5 个文件）
-│   ├── nginx.conf.template  # 基于官方 nginx.conf，仅改监听端口 8080（非root 不能绑 80）
-│   ├── php-fpm-entrypoint   # 官方入口脚本补丁版：APP_KEY/JWT_SECRET 首启生成并持久化
-│   └── build-multiarch.sh   # docker buildx 双架构(amd64+arm64)构建推送脚本
-├── package/                 # TOS 提交包模板（含占位符，由 make-packages.sh 注入）
-│   ├── config.ini           # 应用元数据（platform 按架构注入）
-│   ├── opnform.lang         # 26 语言多语言文件
-│   ├── opnform.svg          # 应用图标
-│   └── docker-compose.yml   # TOS 合规编排（端口 18080 / bind mount / 非 root / 全量健康检查）
-├── make-packages.sh         # 生成 dist/opnform_x86_64.tar.gz 与 dist/opnform_aarch64.tar.gz
-├── verify.py                # 静态合规自检（对照指南第 8/9 章逐条检查）
-└── dist/                    # 生成产物
-```
+- 骨架 deb（双架构）已通过 `verify-deb.py` 全部静态检查（dpkg-deb 实际构建 + 解包校验）；
+- **未验证**：完整 deb 的构建与安装（沙箱无 Docker/无 root），需 CI 跑通后在 TNAS 上用 `TOSAppSelfTestingTool` 真机自测；
+- PG share 目录用相对布局（`bin/../share/postgresql/14`）适配捆绑路径，需真机确认 postgres 启动；
+- lintian 检查在 CI 步骤中执行（本地沙箱无 lintian）。
 
-## 使用步骤
+## 许可证
 
-1. **准备源码与镜像**
-   ```bash
-   git clone https://github.com/OpnForm/OpnForm.git
-   cd tos-opnform/images && chmod +x build-multiarch.sh
-   ./build-multiarch.sh <你的DockerHub命名空间> <版本号> ../OpnForm
-   ```
-   构建脚本用 `docker buildx --platform linux/amd64,linux/arm64` 一次产出双架构
-   manifest，与 OpnForm 官方发布流水线（`.github/workflows/docker-client-release.yml`
-   的 amd64/arm64 matrix）同构。
-
-2. **生成提交包**
-   ```bash
-   cd tos-opnform && chmod +x make-packages.sh
-   ./make-packages.sh <你的DockerHub命名空间> "<发布者名称>" <版本号>
-   python3 verify.py
-   ```
-
-3. **本地试运行**（在任意有 Docker 的机器，模拟 TOS 安装结果）
-   ```bash
-   mkdir -p /tmp/opnform-test && cd /tmp/opnform-test
-   tar -xzf <tos-opnform>/dist/opnform_x86_64.tar.gz
-   sudo chown -R 1000:0 storage postgres redis   # 模拟 TOS 平台的目录属主
-   docker compose up -d
-   curl -f http://localhost:18080/health || curl -f http://localhost:18080/
-   ```
-
-4. **真机验证**：拷贝到 TNAS，按指南第 13 章 `TOSAppSelfTestingTool` 安装自测，
-   确认 7 个容器全部 healthy、应用中心显示"运行中"。
-
-5. **提交发布**：按指南第 15 章，在 TNAS 开发者平台创建应用（类型 Docker），
-   分 x86_64 / aarch64 两次提交对应的 tar.gz。
-
-## 相对官方 docker-compose.yml 的关键改造（TOS 合规点）
-
-| 项 | 官方做法 | TOS 适配做法 | 依据 |
-|---|---|---|---|
-| 宿主端口 | `80:80` | `18080:8080`（推荐区间 8000-19999，80 为系统保留） | §9.3 Rule 5 |
-| 配置注入 | `env_file: ./api/.env` | 全部环境变量内联（包内仅允许 4 个文件） | §9.2 |
-| YAML 锚点 | `&api-environment` / `<<: *` | 展开为显式配置（平台逐行解析，避免锚点歧义） | §9.3 |
-| 数据卷 | named volume | 相对路径 bind mount（./storage ./postgres ./redis），平台解析到 DockerAppData 数据根 | §9.3 Rule 4 |
-| 运行用户 | 默认 root / www-data | 全服务非 root；自建镜像 UID 1000，postgres/redis 以 `user: "1000:1000"` 运行 | §9.4 Rule 5 |
-| nginx 配置 | 卷挂载注入 | 固化进自建 ingress 镜像 | §9.2 |
-| 镜像 tag | `:latest` | 锁定版本号 | §9.4 / 模板清单 |
-| 密钥 | 用户手写 .env | APP_KEY/JWT_SECRET 首启生成、持久化到 storage 卷；DB 口令打包时随机生成 | §9.4 Rule 3 |
-| 健康检查 | 已有 | 保留并确认每服务都有 | §9.5 |
-| 升级 | — | TOS Docker 应用不支持平台升级，重装不丢数据（bind mount 在数据根下） | §9.6.2/9.6.4 |
-
-## 验证边界（诚实声明）
-
-以下内容在本工程交付时**未验证**，需要真实环境确认：
-
-- 镜像构建与运行：编写本工程的沙箱没有 Docker，`images/` 下的 Dockerfile 与
-  entrypoint 基于官方文件修改，需按上面步骤 1-3 实际构建试跑；
-- OpnForm 官方镜像 `jhumanj/opnform-api|client` 虽由官方 CI 双架构发布，但 TOS
-  安全审核对"非验证个人/社区镜像"有拒审可能，因此本工程默认走自建镜像路线；
-- `postgres:16` / `redis:7` 以 `user: "1000:1000"` 运行依赖平台对 bind mount 目录
-  的 chown 行为（1000:0），指南有描述但需真机确认；
-- 液态玻璃 UI 原型是设计方向稿，未合入 OpnForm 前端源码（见方案文档）。
-
-## 许可证提示
-
-OpnForm 核心代码采用 AGPL-3.0。对外分发的镜像包含修改后的 OpnForm 代码，
-须以同等许可提供修改后的源码（如公开你的 fork 仓库并在应用介绍中链接）。
+OpnForm 核心代码 AGPL-3.0。对外分发（deb 包/镜像）包含修改后的 OpnForm 代码，须以同等许可公开修改后的源码——本仓库即满足该要求的源码披露载体，发布页应附仓库链接。

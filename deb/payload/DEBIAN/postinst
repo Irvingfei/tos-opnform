@@ -1,0 +1,16 @@
+#!/bin/bash
+set -e
+
+# 设置属主（运行时用户由平台创建，可能晚于解包，容错处理）
+getent passwd opnform >/dev/null && chown -R opnform:opnform /usr/local/opnform 2>/dev/null || true
+chown -R opnform:opnform /usr/local/opnform/data /usr/local/opnform/logs 2>/dev/null || true
+chmod 755 /usr/local/opnform/bin/* 2>/dev/null || true
+
+# 本应用为外部打开模式（自带服务直接监听 18080），无 webui.bz2 / nginx 平台配置
+
+# 启用并启动服务
+systemctl daemon-reload
+systemctl enable opnform.service
+systemctl start opnform.service
+
+exit 0
