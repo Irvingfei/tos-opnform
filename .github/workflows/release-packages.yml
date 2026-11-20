@@ -1,0 +1,46 @@
+name: Release TOS packages
+
+# 推送 v* 标签时触发：生成 x86_64 / aarch64 两份 TOS 提交包，
+# 静态合规自检通过后创建 GitHub Release 并挂载包文件。
+# TOS 开发者平台提审时会从 Release 下载包（指南第 15 章），因此 Release 资产名保持
+# opnform_<platform>.tar.gz 规范命名。
+#
+# 需在仓库 Settings → Secrets and variables → Actions 配置：
+#   DOCKERHUB_USERNAME — 镜像命名空间（写入 compose 的 image 引用）
+#   PUBLISHER_NAME     — 应用发布者显示名（写入 config.ini 与 .lang）
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install verify deps
+        run: pip install pyyaml
+
+      - name: Generate packages
+        run: |
+          chmod +x make-packages.sh
+          ./make-packages.sh "${{ secrets.DOCKERHUB_USERNAME }}" "${{ secrets.PUBLISHER_NAME }}" "${GITHUB_REF_NAME#v}"
+
+      - name: Static compliance check
+        run: python3 verify.py
+
+      - name: Create GitHub Release with package assets
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/opnform_x86_64.tar.gz
+            dist/opnform_aarch64.tar.gz

@@ -1,0 +1,226 @@
+# OpnForm for TOS 7 — Docker 应用编排
+# 改编自 OpnForm 官方 docker-compose.yml，按《TOS 7 应用开发指南》第 9 章改造：
+#   - 仅暴露一个宿主端口 18080（推荐区间 8000-19999，避开系统保留端口）
+#   - 数据全部用相对路径 bind mount（./xxx），平台解析到 /Volume<N>/DockerAppData/opnform/
+#   - 全部服务非 root 运行（自建镜像内置 USER，postgres/redis 以 1000:1000 运行）
+#   - 去掉 YAML 锚点与 env_file（TOS 包仅 4 个文件，compose 必须静态自包含）
+#   - 每个服务都有 healthcheck；多容器用 depends_on: service_healthy 保证启动顺序
+#   - 镜像使用锁定版本 tag（构建时由 make-packages.sh 注入 __DOCKER_NS__ / __APP_VERSION__）
+#   - volumes / ports 序列内部不放任何注释（平台逐行解析这两个块）
+version: "3.8"
+
+services:
+  opnform:
+    image: __DOCKER_NS__/opnform-ingress:__APP_VERSION__
+    container_name: opnform
+    restart: unless-stopped
+    ports:
+      - "18080:8080"
+    environment:
+      - TZ=Asia/Shanghai
+      - NGINX_MAX_BODY_SIZE=64m
+    depends_on:
+      opnform-api:
+        condition: service_started
+      opnform-client:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  opnform-api:
+    image: __DOCKER_NS__/opnform-api:__APP_VERSION__
+    container_name: opnform-api
+    restart: unless-stopped
+    user: "1000:1000"
+    volumes:
+      - ./storage:/usr/share/nginx/html/storage
+    environment:
+      - TZ=Asia/Shanghai
+      - APP_NAME=OpnForm
+      - APP_ENV=production
+      - APP_KEY=
+      - APP_DEBUG=false
+      - APP_URL=http://localhost
+      - FRONT_URL=http://localhost
+      - LOG_CHANNEL=errorlog
+      - LOG_LEVEL=debug
+      - CACHE_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+      - SESSION_DRIVER=redis
+      - DB_HOST=opnform-db
+      - DB_PORT=5432
+      - DB_DATABASE=opnform
+      - DB_USERNAME=opnform
+      - DB_PASSWORD=__DB_PASSWORD__
+      - REDIS_HOST=opnform-redis
+      - MAIL_MAILER=log
+      - JWT_TTL=1440
+      - JWT_SECRET=
+      - PUBLIC_UPLOADS_RATE_LIMIT_PER_MINUTE=30
+      - PUBLIC_UPLOADS_RATE_LIMIT_PER_HOUR=300
+      - SHOW_OFFICIAL_TEMPLATES=false
+      - PHP_MEMORY_LIMIT=1G
+      - PHP_MAX_EXECUTION_TIME=600
+      - PHP_UPLOAD_MAX_FILESIZE=64M
+      - PHP_POST_MAX_SIZE=64M
+    depends_on:
+      opnform-db:
+        condition: service_healthy
+      opnform-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "php /usr/share/nginx/html/artisan about || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 60s
+
+  opnform-worker:
+    image: __DOCKER_NS__/opnform-api:__APP_VERSION__
+    container_name: opnform-worker
+    restart: unless-stopped
+    user: "1000:1000"
+    command: ["php", "artisan", "queue:work"]
+    volumes:
+      - ./storage:/usr/share/nginx/html/storage
+    environment:
+      - TZ=Asia/Shanghai
+      - APP_NAME=OpnForm
+      - APP_ENV=production
+      - APP_KEY=
+      - APP_DEBUG=false
+      - APP_URL=http://localhost
+      - FRONT_URL=http://localhost
+      - LOG_CHANNEL=errorlog
+      - CACHE_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+      - SESSION_DRIVER=redis
+      - DB_HOST=opnform-db
+      - DB_PORT=5432
+      - DB_DATABASE=opnform
+      - DB_USERNAME=opnform
+      - DB_PASSWORD=__DB_PASSWORD__
+      - REDIS_HOST=opnform-redis
+      - MAIL_MAILER=log
+      - JWT_TTL=1440
+      - JWT_SECRET=
+      - PHP_MEMORY_LIMIT=1G
+      - PHP_MAX_EXECUTION_TIME=600
+    depends_on:
+      opnform-db:
+        condition: service_healthy
+      opnform-redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'php artisan queue:work' > /dev/null || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  opnform-scheduler:
+    image: __DOCKER_NS__/opnform-api:__APP_VERSION__
+    container_name: opnform-scheduler
+    restart: unless-stopped
+    user: "1000:1000"
+    command: ["php", "artisan", "schedule:work"]
+    volumes:
+      - ./storage:/usr/share/nginx/html/storage
+    environment:
+      - TZ=Asia/Shanghai
+      - APP_NAME=OpnForm
+      - APP_ENV=production
+      - APP_KEY=
+      - APP_DEBUG=false
+      - APP_URL=http://localhost
+      - FRONT_URL=http://localhost
+      - LOG_CHANNEL=errorlog
+      - CACHE_DRIVER=redis
+      - QUEUE_CONNECTION=redis
+      - SESSION_DRIVER=redis
+      - DB_HOST=opnform-db
+      - DB_PORT=5432
+      - DB_DATABASE=opnform
+      - DB_USERNAME=opnform
+      - DB_PASSWORD=__DB_PASSWORD__
+      - REDIS_HOST=opnform-redis
+      - MAIL_MAILER=log
+      - JWT_TTL=1440
+      - JWT_SECRET=
+      - PHP_MEMORY_LIMIT=1G
+    depends_on:
+      opnform-db:
+        condition: service_healthy
+      opnform-redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "php /usr/share/nginx/html/artisan app:scheduler-status --mode=check --max-minutes=3 || exit 1",
+        ]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 70s
+
+  opnform-client:
+    image: __DOCKER_NS__/opnform-client:__APP_VERSION__
+    container_name: opnform-client
+    restart: unless-stopped
+    user: "1000:1000"
+    environment:
+      - TZ=Asia/Shanghai
+      - NUXT_PUBLIC_APP_URL=/
+      - NUXT_PUBLIC_API_BASE=/api
+      - NUXT_PRIVATE_API_BASE=http://opnform/api
+      - NUXT_PUBLIC_ENV=production
+    depends_on:
+      opnform-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
+
+  opnform-redis:
+    image: redis:7
+    container_name: opnform-redis
+    restart: unless-stopped
+    user: "1000:1000"
+    volumes:
+      - ./redis:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  opnform-db:
+    image: postgres:16
+    container_name: opnform-db
+    restart: unless-stopped
+    user: "1000:1000"
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+    environment:
+      - TZ=Asia/Shanghai
+      - POSTGRES_DB=opnform
+      - POSTGRES_USER=opnform
+      - POSTGRES_PASSWORD=__DB_PASSWORD__
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opnform -d opnform"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+x-app-meta:
+  web:
+    port: 18080
+    protocol: http

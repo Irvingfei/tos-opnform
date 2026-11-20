@@ -1,0 +1,96 @@
+# OpnForm API — TOS 7 适配镜像
+# 基于官方 docker/Dockerfile.api 修改：
+#   1. www-data 重建为 UID/GID 1000（TOS 平台将挂载目录 chown 为 1000:0）
+#   2. 以非 root 用户运行（TOS 禁止 root 运行）
+#   3. 应用目录整体归属 www-data，非 root 入口脚本可执行 chown/chmod
+#   4. 使用打过补丁的 php-fpm-entrypoint（首启自动生成 APP_KEY/JWT_SECRET 并持久化到 storage 卷）
+# 官方原文件：https://github.com/OpnForm/OpnForm/blob/main/docker/Dockerfile.api
+
+# ---- 构建阶段 ----
+FROM php:8.3.37-cli AS builder
+
+RUN apt-get update && apt-get install -y \
+    libzip-dev \
+    libpng-dev \
+    unzip \
+    git \
+    && docker-php-ext-install -j$(nproc) \
+    bcmath \
+    gd \
+    zip \
+    pcntl \
+    && curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+WORKDIR /app
+COPY api/ .
+RUN composer install --optimize-autoloader --no-interaction
+
+# ---- 运行阶段 ----
+FROM php:8.3.37-fpm-alpine
+
+ARG APP_VERSION=unknown
+
+RUN apk add --no-cache \
+    libzip \
+    libpng \
+    postgresql-client \
+    libpq \
+    procps \
+    util-linux \
+    unzip \
+    bash \
+    icu-libs \
+    && rm -rf /var/cache/apk/*
+
+RUN apk add --no-cache --virtual .build-deps \
+    $PHPIZE_DEPS \
+    libzip-dev \
+    libpng-dev \
+    postgresql-dev \
+    oniguruma-dev \
+    icu-dev \
+    && docker-php-ext-configure pgsql \
+    && docker-php-ext-configure gd \
+    && docker-php-ext-install -j$(nproc) \
+    pdo \
+    zip \
+    gd \
+    pgsql \
+    pdo_pgsql \
+    bcmath \
+    pcntl \
+    && pecl install redis \
+    && docker-php-ext-enable redis \
+    && apk del .build-deps
+
+# TOS 适配：将 www-data 重建为 UID/GID 1000，与平台挂载目录属主(1000:0)一致
+RUN deluser www-data 2>/dev/null; \
+    addgroup -g 1000 www-data && \
+    adduser -D -u 1000 -G www-data www-data
+
+WORKDIR /usr/share/nginx/html/
+
+RUN mkdir -p storage/framework/sessions \
+    storage/framework/views \
+    storage/framework/cache \
+    storage/logs \
+    storage/app/public \
+    bootstrap/cache
+
+COPY --from=builder /app/ ./
+
+# 应用整体归属 www-data（UID 1000），非 root 入口脚本才能对其执行 chown/chmod/storage:link
+RUN chown -R www-data:www-data /usr/share/nginx/html
+
+ENV APP_VERSION_DOCKER=$APP_VERSION
+
+COPY api/php/conf.d/ /usr/local/etc/php/conf.d/
+# 构建前需将本仓库 images/php-fpm-entrypoint（补丁版）覆盖到 OpnForm 源码 docker/ 目录
+# （build-multiarch.sh 与 CI 已自动执行该步骤），保持与官方构建上下文一致
+COPY docker/php-fpm-entrypoint /usr/local/bin/opnform-entrypoint
+RUN chmod a+x /usr/local/bin/*
+
+USER www-data
+
+ENTRYPOINT ["/usr/local/bin/opnform-entrypoint"]
+CMD ["php-fpm"]

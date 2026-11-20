@@ -1,0 +1,75 @@
+name: Build multi-arch images
+
+# 推送 v* 标签时触发：克隆固定版本的 OpnForm 源码，
+# 用 buildx 一次构建 linux/amd64 + linux/arm64 三个自建镜像并推送 Docker Hub。
+# 需在仓库 Settings → Secrets and variables → Actions 配置：
+#   DOCKERHUB_USERNAME  — 你的 Docker Hub 用户名（同时用作镜像命名空间）
+#   DOCKERHUB_TOKEN     — Docker Hub Access Token
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  OPNFORM_REF: v2.8.6   # OpnForm 上游版本（发布前更新为新 tag）
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Clone OpnForm source (pinned)
+        run: |
+          git clone --depth 1 --branch "$OPNFORM_REF" https://github.com/OpnForm/OpnForm.git opnform-src
+          # 用本仓库的补丁版入口脚本覆盖官方版本（APP_KEY/JWT_SECRET 首启生成等 TOS 适配）
+          cp images/php-fpm-entrypoint opnform-src/docker/php-fpm-entrypoint
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Derive image tag
+        id: ver
+        run: echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build & push opnform-api
+        uses: docker/build-push-action@v6
+        with:
+          context: ./opnform-src
+          file: ./images/Dockerfile.api
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            APP_VERSION=${{ steps.ver.outputs.tag }}
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/opnform-api:${{ steps.ver.outputs.tag }}
+
+      - name: Build & push opnform-client
+        uses: docker/build-push-action@v6
+        with:
+          context: ./opnform-src
+          file: ./images/Dockerfile.client
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/opnform-client:${{ steps.ver.outputs.tag }}
+
+      - name: Build & push opnform-ingress
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./images/Dockerfile.ingress
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/opnform-ingress:${{ steps.ver.outputs.tag }}

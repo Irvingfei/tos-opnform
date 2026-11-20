@@ -1,0 +1,6 @@
+# 本地产物（由 make-packages.sh 生成，CI 会重新打包）
+dist/
+
+# 临时文件
+*.tmp
+.DS_Store

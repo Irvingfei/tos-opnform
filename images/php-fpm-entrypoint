@@ -1,0 +1,175 @@
+#!/bin/bash
+# OpnForm php-fpm 入口脚本 — TOS 7 适配版
+# 基于官方 docker/php-fpm-entrypoint 修改：
+#   1. 新增 ensure_app_secrets()：APP_KEY / JWT_SECRET 首次启动自动生成，
+#      持久化到 storage 卷（storage/app/.secrets.env），三个 api 角色容器用 flock 防竞争。
+#      TOS 静态 compose 无法注入密钥，也不允许明文硬编码，因此采用首启生成+落盘复用。
+#   2. 运行日志从 /var/log/opnform.log 移到 storage/logs/（非 root 无权写 /var/log）。
+#   3. chown/chmod 全部容错（非 root 场景依赖平台预先 chown 挂载目录为 1000:0）。
+# 官方原文件：https://github.com/OpnForm/OpnForm/blob/main/docker/php-fpm-entrypoint
+
+main() {
+    local COMMAND_AS_STRING="$*"
+    local ROLE="api"
+
+    case "$COMMAND_AS_STRING" in
+        *"artisan queue:work"*) ROLE="worker" ;;
+        *"artisan schedule:work"*) ROLE="scheduler" ;;
+        *) ROLE="api" ;;
+    esac
+
+    echo "Determined role: $ROLE for command: $COMMAND_AS_STRING"
+
+    apply_php_configuration
+    prep_file_permissions
+    prep_storage
+    ensure_app_secrets
+    wait_for_db
+
+    if [ "$ROLE" = "api" ]; then
+        echo "Running setup for API role..."
+        apply_db_migrations
+        initialize_instance
+        initialize_mcp_oauth_keys
+        optimize_application
+        echo "Starting server for API role with command: $@"
+        exec "$@"
+    elif [ "$ROLE" = "scheduler" ]; then
+        echo "Running setup for Scheduler role..."
+        php ./artisan app:scheduler-status --mode=record
+        exec "$@"
+    elif [ "$ROLE" = "worker" ]; then
+        echo "Running setup for Worker role..."
+        exec "$@"
+    else
+        echo "Error: Unknown role '$ROLE'. Exiting."
+        exit 1
+    fi
+}
+
+apply_php_configuration() {
+    echo "Applying PHP configuration from environment variables"
+    PHP_CUSTOM_CONFIG_FILE="/usr/local/etc/php/conf.d/99-custom.ini"
+    echo "memory_limit = ${PHP_MEMORY_LIMIT:-1G}" >> $PHP_CUSTOM_CONFIG_FILE
+    echo "max_execution_time = ${PHP_MAX_EXECUTION_TIME:-300}" >> $PHP_CUSTOM_CONFIG_FILE
+    echo "upload_max_filesize = ${PHP_UPLOAD_MAX_FILESIZE:-50M}" >> $PHP_CUSTOM_CONFIG_FILE
+    echo "post_max_size = ${PHP_POST_MAX_SIZE:-55M}" >> $PHP_CUSTOM_CONFIG_FILE
+    echo "Applied PHP configuration:"
+    cat $PHP_CUSTOM_CONFIG_FILE
+}
+
+prep_file_permissions() {
+    chmod a+x ./artisan 2>/dev/null || true
+}
+
+prep_storage() {
+    local app_storage_path="/usr/share/nginx/html/storage"
+    mkdir -p "$app_storage_path/app/public" \
+        "$app_storage_path/framework/cache/data" \
+        "$app_storage_path/framework/sessions" \
+        "$app_storage_path/framework/views" \
+        "$app_storage_path/logs"
+    # 非 root 运行：仅当目录属主不匹配时才尝试修正（平台已将挂载目录 chown 为 1000:0）
+    chown -R www-data:www-data "$app_storage_path" 2>/dev/null || true
+    chmod -R 775 "$app_storage_path" 2>/dev/null || true
+
+    # TOS 适配：日志写进 storage 卷而非 /var/log（非 root 无权写 /var/log）
+    : >> "$app_storage_path/logs/opnform-runtime.log" 2>/dev/null || true
+    touch /var/log/opnform.log 2>/dev/null || \
+        ln -sf "$app_storage_path/logs/opnform-runtime.log" /var/log/opnform.log 2>/dev/null || true
+
+    echo "Creating public storage symlink"
+    php ./artisan storage:link 2>/dev/null || true
+}
+
+ensure_app_secrets() {
+    # APP_KEY / JWT_SECRET：环境变量优先；否则从 storage 卷读取；都没有则生成一次并落盘。
+    # api / worker / scheduler 三个容器共享同一 storage 卷，用 flock 防止首启竞争。
+    local secrets_file="/usr/share/nginx/html/storage/app/.secrets.env"
+    local lock_file="${secrets_file}.lock"
+    mkdir -p "$(dirname "$secrets_file")"
+
+    (
+        flock -w 60 9 || echo "WARN: secrets lock timeout, continuing"
+
+        if [ -z "${APP_KEY:-}" ]; then
+            if [ -f "$secrets_file" ] && grep -q '^APP_KEY=' "$secrets_file"; then
+                APP_KEY=$(sed -n 's/^APP_KEY=//p' "$secrets_file" | tail -n1)
+            else
+                APP_KEY="base64:$(php -r 'echo base64_encode(random_bytes(32));')"
+                echo "APP_KEY=${APP_KEY}" >> "$secrets_file"
+            fi
+        fi
+
+        if [ -z "${JWT_SECRET:-}" ]; then
+            if [ -f "$secrets_file" ] && grep -q '^JWT_SECRET=' "$secrets_file"; then
+                JWT_SECRET=$(sed -n 's/^JWT_SECRET=//p' "$secrets_file" | tail -n1)
+            else
+                JWT_SECRET="$(php -r 'echo bin2hex(random_bytes(32));')"
+                echo "JWT_SECRET=${JWT_SECRET}" >> "$secrets_file"
+            fi
+        fi
+
+        chmod 600 "$secrets_file" 2>/dev/null || true
+        chown www-data:www-data "$secrets_file" 2>/dev/null || true
+
+        export APP_KEY JWT_SECRET
+        # exec 时保留环境：通过 runfile 传递给当前 shell 的导出
+        echo "export APP_KEY='${APP_KEY}'" > /tmp/.opnform-secrets.sh
+        echo "export JWT_SECRET='${JWT_SECRET}'" >> /tmp/.opnform-secrets.sh
+    ) 9>"$lock_file"
+
+    # shellcheck disable=SC1091
+    [ -f /tmp/.opnform-secrets.sh ] && . /tmp/.opnform-secrets.sh
+    echo "APP_KEY/JWT_SECRET ready (role: ${APP_ROLE:-api})"
+}
+
+wait_for_db() {
+    echo "Waiting for DB to be ready"
+    until php ./artisan migrate:status 2>&1 | grep -q -E "(Migration table not found|Migration name)"; do
+        sleep 1
+    done
+}
+
+apply_db_migrations() {
+    echo "Running DB Migrations"
+    php ./artisan migrate --force
+}
+
+initialize_instance() {
+    echo "Initializing instance for telemetry"
+    php ./artisan telemetry:initialize-instance
+}
+
+initialize_mcp_oauth_keys() {
+    if [ -n "${PASSPORT_PRIVATE_KEY:-}" ] && [ -n "${PASSPORT_PUBLIC_KEY:-}" ]; then
+        echo "Using Passport keys from the environment"
+        return 0
+    fi
+    if [ -n "${PASSPORT_PRIVATE_KEY:-}" ] || [ -n "${PASSPORT_PUBLIC_KEY:-}" ]; then
+        echo "PASSPORT_PRIVATE_KEY and PASSPORT_PUBLIC_KEY must be configured together" >&2
+        exit 1
+    fi
+    if [ -f ./storage/oauth-private.key ] && [ -f ./storage/oauth-public.key ]; then
+        echo "Reusing Passport keys from storage"
+        return 0
+    fi
+    if [ -f ./storage/oauth-private.key ] || [ -f ./storage/oauth-public.key ]; then
+        echo "Incomplete Passport key pair in storage" >&2
+        exit 1
+    fi
+    echo "Generating Passport keys for MCP OAuth"
+    php ./artisan passport:keys --force
+    chown www-data:www-data ./storage/oauth-private.key ./storage/oauth-public.key 2>/dev/null || true
+    chmod 600 ./storage/oauth-private.key 2>/dev/null || true
+    chmod 644 ./storage/oauth-public.key 2>/dev/null || true
+}
+
+optimize_application() {
+    echo "Clearing application cache"
+    php ./artisan optimize:clear
+    echo "Optimizing application"
+    php ./artisan optimize
+}
+
+main "$@"

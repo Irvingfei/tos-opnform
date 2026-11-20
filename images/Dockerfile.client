@@ -1,0 +1,35 @@
+# OpnForm 客户端(Nuxt) — TOS 7 适配镜像
+# 基于官方 docker/Dockerfile.client 修改：显式声明非 root 用户 node(UID 1000)
+# 官方原文件：https://github.com/OpnForm/OpnForm/blob/main/docker/Dockerfile.client
+
+FROM node:24.22.1-alpine AS javascript-builder
+WORKDIR /app
+
+ADD ./client/package.json ./client/package-lock.json ./
+
+# better-sqlite3 13 的原生插件在 npm ci 阶段编译
+RUN apk add --no-cache git python3 make g++
+
+RUN npm cache clean --force && \
+    rm -rf node_modules && \
+    npm ci && \
+    npm cache clean --force
+
+ADD ./client/ /app/
+
+ARG NODE_BUILD_HEAP_MB=4096
+ENV NODE_OPTIONS="--max-old-space-size=${NODE_BUILD_HEAP_MB}"
+ENV NODE_ENV=production
+ENV GENERATE_SOURCEMAP=false
+ENV NUXT_TELEMETRY_DISABLED=1
+RUN --mount=type=tmpfs,target=/tmp \
+    NUXT_BUILD_CONCURRENCY=1 npm run build
+
+FROM node:24.22.1-alpine
+WORKDIR /app
+COPY --from=javascript-builder --chown=node:node /app/.output/ /app/
+
+# TOS 适配：非 root 运行
+USER node
+
+CMD [ "node", "./server/index.mjs" ]

@@ -1,0 +1,18 @@
+# OpnForm Ingress(nginx) — TOS 7 适配镜像
+# 官方 docker-compose 通过卷挂载注入 nginx.conf，但 TOS 应用包只允许 4 个文件、
+# 不允许额外配置文件，因此把配置固化进镜像（官方 nginx.conf 原样内置，仅调整上游主机名）。
+# 上游主机名使用 compose 里的容器名：opnform-client:3000 / opnform-api:9000
+
+FROM nginx:1.27-alpine
+
+COPY images/nginx.conf.template /etc/nginx/templates/default.conf.template
+
+# 非 root 运行：nginx 官方镜像支持 UNSET 通过环境变量调整，
+# 以 UID 1000 监听 80 需要内核 cap_net_bind_service；改为监听 8080（宿主端口映射 18080:8080）
+RUN sed -i 's/listen 80;/listen 8080;/' /etc/nginx/templates/default.conf.template && \
+    sed -i 's/^user  nginx;/user  nginx;/' /etc/nginx/nginx.conf && \
+    chown -R nginx:nginx /etc/nginx/templates /var/cache/nginx /var/run
+
+USER nginx
+
+EXPOSE 8080
