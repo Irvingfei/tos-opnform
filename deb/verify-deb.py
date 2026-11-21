@@ -168,7 +168,7 @@ def check(deb_path):
 
 def main():
     import glob
-    pkgs = sorted(glob.glob("dist/opnform_*.deb"))
+    pkgs = sorted(glob.glob(os.path.join(os.path.dirname(os.path.abspath(__file__)), "dist", "opnform_*.deb")))
     if not pkgs:
         print("dist/ 下没有 deb，请先运行 ./make-skeleton-deb.sh 或 build-in-container.sh")
         sys.exit(1)

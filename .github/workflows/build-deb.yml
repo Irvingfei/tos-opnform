@@ -49,6 +49,7 @@ jobs:
 
       - name: Static compliance check
         run: |
+          sudo apt-get update -qq || true
           sudo apt-get install -y -qq lintian || true
           python3 deb/verify-deb.py
           lintian deb/dist/opnform_${{ matrix.arch }}.deb || true
