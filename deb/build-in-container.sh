@@ -39,15 +39,22 @@ apt-get install -y -qq curl gnupg
 curl -fsSL https://packages.sury.org/php/apt.gpg -o /etc/apt/trusted.gpg.d/sury.gpg
 echo "deb [arch=$DEBARCH] https://packages.sury.org/php/ jammy main" > /etc/apt/sources.list.d/sury.list
 apt-get update -qq
+# 容器内安装 PHP 8.3 全套扩展与 composer（第 5 步要在构建环境里跑 composer）；
+# 顺带把 PHP 的运行库依赖装进系统，php 包装器在容器内也能正常启动
+apt-get install -y -qq $PHP_BUILD_PKGS composer
 
 echo "==> [3/8] 下载并解包运行时组件"
 DL=$(mktemp -d)
 cd "$DL"
+# 注意：apt-get download 不解析依赖，PHP/PG/nginx 的非默认运行库必须显式下载，
+# 否则 rootfs 里没有这些 .so，cp 段会静默跳过、打出的包在 TOS 上缺库
+LIB_PKGS="libpq5 libonig5 libzip4 libgd3 libicu70 libwebp7 libjpeg-turbo8 libpng16-16 libfreetype6 libsodium23 libssl3 libxml2 libpcre3"
 apt-get download -qq $PHP_BUILD_PKGS \
     postgresql-14 postgresql-client-14 \
     redis-server \
-    nginx-core libnginx-mod-http-headers-more-filter 2>/dev/null || \
-    apt-get download -qq $PHP_BUILD_PKGS postgresql-14 postgresql-client-14 redis-server nginx-core
+    nginx-core \
+    $LIB_PKGS
+apt-get download -qq libnginx-mod-http-headers-more-filter 2>/dev/null || true
 for d in *.deb; do dpkg-deb -x "$d" rootfs/; done
 mkdir -p "$HERE/depends-tmp"
 DEPENDS="$STAGE/usr/local/opnform/depends"
@@ -55,9 +62,8 @@ mkdir -p "$DEPENDS"
 
 # PHP：bin/php + sbin/php-fpm + etc/php/8.3 + 扩展 so + 捆绑非默认库
 mkdir -p "$DEPENDS/php"
-cp -a rootfs/usr/bin/php8.3 "$DEPENDS/php/bin/php"
-cp -a rootfs/usr/sbin/php-fpm8.3 "$DEPENDS/php/sbin/php-fpm"
 mkdir -p "$DEPENDS/php/bin" "$DEPENDS/php/sbin"
+cp -a rootfs/usr/bin/php8.3 "$DEPENDS/php/bin/php"
 cp -a rootfs/usr/sbin/php-fpm8.3 "$DEPENDS/php/sbin/php-fpm"
 cp -a rootfs/usr/lib/php/8.3 "$DEPENDS/php/libext" 2>/dev/null || true
 cp -a rootfs/etc/php/8.3 "$DEPENDS/php/etc"
