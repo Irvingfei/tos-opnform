@@ -16,6 +16,9 @@ permissions:
 jobs:
   build-deb:
     strategy:
+      # 不因单架构失败取消另一架构：镜像同步抖动常只影响一个架构，
+      # fail-fast 会把已成功的另一半连带取消，导致 Release job 拿不到资产。
+      fail-fast: false
       matrix:
         include:
           - arch: amd64
@@ -23,6 +26,7 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 

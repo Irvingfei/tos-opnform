@@ -12,15 +12,20 @@
 # 所有下载经 apt（同一构建环境保证 ABI 与 TOS 根文件系统 Ubuntu 22.04 兼容，glibc 2.35）
 set -euo pipefail
 
-# apt 索引偶发上游镜像同步失败（"Mirror sync in progress?"），带重试
+# apt 索引偶发上游镜像同步失败（"Mirror sync in progress?"），带重试。
+# 该状态下 Release 记录的文件大小/哈希与 CDN 上的 Packages 实际内容不一致，
+# 属于上游同步窗口（实测可延续数分钟），因此用递增退避把总窗口拉到 ~5.5 分钟。
+# 注意：不关闭 apt 的哈希校验——放宽校验等于放弃索引完整性，宁可等待。
 apt_update_retry() {
-  local i
-  for i in 1 2 3 4 5; do
+  local i delay
+  for i in 1 2 3 4 5 6 7 8; do
     apt-get update -qq && return 0
-    echo "==> apt-get update 失败（第 $i 次），8 秒后重试"
-    sleep 8
+    delay=$(( i * 15 ))
+    [ "$delay" -gt 60 ] && delay=60
+    echo "==> apt-get update 失败（第 $i 次），${delay} 秒后重试" >&2
+    sleep "$delay"
   done
-  echo "==> apt-get update 连续 5 次失败，放弃" >&2
+  echo "==> apt-get update 连续 8 次失败（累计等待约 5.5 分钟），放弃" >&2
   return 1
 }
 
