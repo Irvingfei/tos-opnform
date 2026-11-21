@@ -1,7 +1,7 @@
 name: Release TOS packages
 
-# 推送 v* 标签时触发：生成 x86_64 / aarch64 两份 TOS 提交包，
-# 静态合规自检通过后创建 GitHub Release 并挂载包文件。
+# 手动触发（workflow_dispatch）：生成 x86_64 / aarch64 两份 TOS Docker 路线提交包。
+# （按用户决定，发布标签不自动触发本工作流；需要 DOCKERHUB_USERNAME 指定镜像命名空间）
 # TOS 开发者平台提审时会从 Release 下载包（指南第 15 章），因此 Release 资产名保持
 # opnform_<platform>.tar.gz 规范命名。
 #
@@ -10,8 +10,7 @@ name: Release TOS packages
 #   PUBLISHER_NAME     — 应用发布者显示名（写入 config.ini 与 .lang）
 
 on:
-  push:
-    tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: write
