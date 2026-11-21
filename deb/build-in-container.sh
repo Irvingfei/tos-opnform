@@ -63,7 +63,7 @@ cd "$DL"
 LIB_PKGS="libpq5 libonig5 libzip4 libgd3 libicu70 libwebp7 libjpeg-turbo8 libpng16-16 libfreetype6 libsodium23 libssl3 libxml2 libpcre3"
 apt-get download -qq $PHP_BUILD_PKGS \
     postgresql-14 postgresql-client-14 \
-    redis-server \
+    redis-server redis-tools \
     nginx-core \
     $LIB_PKGS
 apt-get download -qq libnginx-mod-http-headers-more-filter 2>/dev/null || true
