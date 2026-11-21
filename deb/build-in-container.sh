@@ -29,6 +29,8 @@ PUBLISHER="${2:?缺少 publisher}"
 MAINTAINER="${3:?缺少 maintainer，如 'Joffy <joffy@users.noreply.github.com>'}"
 ARCH="${4:?缺少架构 amd64|arm64}"
 SRC="${5:-./opnform-src}"
+# 解析为绝对路径：脚本中途会 cd 到临时目录，相对路径会失效
+SRC="$(cd "$SRC" && pwd)"
 
 DEBARCH="$ARCH"                       # dpkg 架构名与 TOS 一致：amd64 / arm64
 [ "$ARCH" = amd64 ] && NARCH=x64 || NARCH=arm64     # Node tarball 后缀
