@@ -12,6 +12,18 @@
 # 所有下载经 apt（同一构建环境保证 ABI 与 TOS 根文件系统 Ubuntu 22.04 兼容，glibc 2.35）
 set -euo pipefail
 
+# apt 索引偶发上游镜像同步失败（"Mirror sync in progress?"），带重试
+apt_update_retry() {
+  local i
+  for i in 1 2 3 4 5; do
+    apt-get update -qq && return 0
+    echo "==> apt-get update 失败（第 $i 次），8 秒后重试"
+    sleep 8
+  done
+  echo "==> apt-get update 连续 5 次失败，放弃" >&2
+  return 1
+}
+
 VER="${1:?用法: build-in-container.sh <version> <publisher> <maintainer> <amd64|arm64> [opnform-src]}"
 PUBLISHER="${2:?缺少 publisher}"
 MAINTAINER="${3:?缺少 maintainer，如 'Joffy <joffy@users.noreply.github.com>'}"
@@ -29,7 +41,7 @@ mkdir -p "$STAGE" "$DIST"
 
 echo "==> [1/8] 安装构建工具"
 export DEBIAN_FRONTEND=noninteractive
-apt-get update -qq
+apt_update_retry
 apt-get install -y -qq ca-certificates curl xz-utils bzip2 git dpkg-dev \
     composer-unbundled 2>/dev/null || apt-get install -y -qq ca-certificates curl xz-utils bzip2 git dpkg-dev
 PHP_BUILD_PKGS="php8.3-cli php8.3-fpm php8.3-pgsql php8.3-redis php8.3-gd php8.3-zip php8.3-bcmath php8.3-mbstring php8.3-xml php8.3-curl php8.3-intl"
@@ -38,7 +50,7 @@ echo "==> [2/8] 准备 apt 源（sury PHP 8.3 + 主源 PG/Redis/nginx）"
 apt-get install -y -qq curl gnupg
 curl -fsSL https://packages.sury.org/php/apt.gpg -o /etc/apt/trusted.gpg.d/sury.gpg
 echo "deb [arch=$DEBARCH] https://packages.sury.org/php/ jammy main" > /etc/apt/sources.list.d/sury.list
-apt-get update -qq
+apt_update_retry
 # 容器内安装 PHP 8.3 全套扩展与 composer（第 5 步要在构建环境里跑 composer）；
 # 顺带把 PHP 的运行库依赖装进系统，php 包装器在容器内也能正常启动
 apt-get install -y -qq $PHP_BUILD_PKGS composer
