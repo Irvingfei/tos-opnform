@@ -37,7 +37,7 @@ fi
 
 # ---- 2) Laravel .env（每次启动重写，保证与运行时密钥一致）----
 cat > "$ROOT/api/.env" <<EOF
-APP_NAME=OpnForm
+APP_NAME=${APP_NAME:-EasyForm}
 APP_ENV=production
 APP_KEY=${APP_KEY}
 APP_DEBUG=false

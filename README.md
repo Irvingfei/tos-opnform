@@ -1,9 +1,16 @@
-# OpnForm for TOS 7（铁威马 NAS 应用适配工程）
+# EasyForm for TOS 7（铁威马 NAS 应用适配工程）
 
-将开源表单构建器 [OpnForm](https://github.com/OpnForm/OpnForm)（AGPL-3.0，Laravel 12 + Nuxt）适配为铁威马 TOS 7 应用，同时产出 **x86_64** 与 **aarch64** 双架构提交包。包含两条并行路线：
+**EasyForm** 是在开源表单构建器 [OpnForm](https://github.com/OpnForm/OpnForm)（AGPL-3.0，Laravel 12 + Nuxt）基础上适配为铁威马 TOS 7 应用的**更名再分发版本**，同时产出 **x86_64** 与 **aarch64** 双架构提交包。包含两条并行路线：
 
 - **`deb/`** — Deb 原生应用（WebUI 外部打开，自带全套捆绑运行时，systemd 单元管理）
 - **`docker/`** — Docker 应用（7 容器 compose 编排，依赖 DockerEngine）
+
+## 名称与归属
+
+- **对外显示名**：EasyForm（`opnform.lang` 26 个语种的 `name` 字段、仓库标题与描述）
+- **上游项目**：OpnForm，<https://github.com/OpnForm/OpnForm>，版本 v2.8.6
+- **内部标识符不改**：deb 包名 `opnform`、安装路径 `/usr/local/opnform`、资产名 `opnform_<arch>.deb`、`config.ini` 的 `id`/`system_id`/`package`/`user`、systemd 单元 `opnform.service`、端口 18080 —— 保持与 v1.1.0 一致，避免破坏 TOS 注册与升级路径
+- `config.ini` 的 `help` / `official` 仍指向 opnform.com，作为上游归属引用
 
 依据：[TOS 7 应用开发与发布指南](https://github.com/TerraMasterOfficial/app-pkg-tools#tos-7-application-development-and-publishing-guide)（第 8 章 Deb / 第 9 章 Docker）。
 
@@ -75,4 +82,14 @@ Deb 应用：每个架构单独提交 `opnform_amd64.deb` / `opnform_arm64.deb`�
 
 ## 许可证
 
-OpnForm 核心代码 AGPL-3.0。对外分发（deb 包/镜像）包含修改后的 OpnForm 代码，须以同等许可公开修改后的源码——本仓库即满足该要求的源码披露载体，发布页应附仓库链接。
+上游 OpnForm v2.8.6 的 `LICENSE` 为 **AGPL-3.0**（核心代码），另有例外：`api/app/Enterprise/` 目录下的代码适用独立的 `api/app/Enterprise/LICENSE`（OpnForm Enterprise Edition 许可，仅允许在持有有效 EE 订阅的前提下用于生产环境）。
+
+对应 AGPL-3.0 §5（Conveying Modified Source Versions）的要求，本仓库作为再分发载体履行如下：
+
+- **§5(a) 修改声明**：本仓库对上游代码的修改是「对外显示名 OpnForm → EasyForm」，修改日期 2026-11-21；未修改任何功能逻辑或接口。修改点：`deb/payload/usr/local/opnform/opnform.lang`、`docker/package/opnform.lang`（26 语种 `name` 字段）、`deb/payload/usr/local/opnform/opnform.env`（新增 `APP_NAME`）。
+- **§5(b) 许可声明**：本仓库整体以 AGPL-3.0 发布，完整许可文本见 <https://www.gnu.org/licenses/agpl-3.0.html>；上游原始 `LICENSE` 见 <https://github.com/OpnForm/OpnForm/blob/v2.8.6/LICENSE>。
+- **§5(c) 整体授权**：本仓库全部源自上游的内容（含打包进 deb 的 `api/`、`client/` 产物）均按 AGPL-3.0 向任何获得副本者授权。
+- **源码披露**：deb 包/镜像内含修改后的 OpnForm 代码，本仓库即满足 AGPL「Corresponding Source」要求的源码披露载体，发布页应附仓库链接。
+- **不主张上游商标**：EasyForm 仅为本次再分发使用的显示名，与 OpnForm 项目方无关联、未获其背书；`config.ini` 的 `official`/`help` 保留 opnform.com 用于归属说明，不表示官方背书。
+
+**待核实（授权风险，非改名范围）**：`api/app/Enterprise/` 下的 OIDC/SSO 代码受 Enterprise Edition 许可约束，而 `deb/build-in-container.sh` 将整个 `api/` 目录打包进 deb 对外分发。若本产品在未持有 OpnForm EE 订阅的情况下用于生产，该目录的再分发不满足 EE 许可条款。建议在上架前从构建中剔除该目录（详见本任务回报）。

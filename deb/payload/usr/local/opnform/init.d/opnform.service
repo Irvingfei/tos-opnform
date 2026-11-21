@@ -1,5 +1,5 @@
 [Unit]
-Description=OpnForm form builder (bundled runtime supervisor)
+Description=EasyForm form builder (bundled runtime supervisor)
 After=network.target
 StartLimitBurst=5
 StartLimitIntervalSec=60

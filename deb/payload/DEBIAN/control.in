@@ -6,8 +6,10 @@ Priority: optional
 Maintainer: __MAINTAINER__
 Depends: libc6 (>= 2.35), systemd
 Description: Open-source form builder, fully self-hosted on your NAS
- OpnForm is an open-source form builder: create forms by drag and drop,
+ EasyForm is an open-source form builder: create forms by drag and drop,
  collect responses and analyze results — your data never leaves your network.
+ .
+ Based on OpnForm (https://github.com/OpnForm/OpnForm), AGPL-3.0.
  .
  Bundled private runtime (PHP 8.3 / Node 24 / PostgreSQL 16 / Redis 7 / nginx)
  under /usr/local/opnform/depends; no system packages are modified.
